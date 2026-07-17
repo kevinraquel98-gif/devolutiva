@@ -26,7 +26,8 @@ interface FinanceStore extends AppState {
     base: Omit<PayableReceivable, "id" | "dueDate" | "paid" | "description">,
     description: string,
     firstDueDate: string,
-    totalInstallments: number
+    totalInstallments: number,
+    startIndex?: number
   ) => void;
   updateItem: (id: string, patch: Partial<PayableReceivable>) => void;
   removeItem: (id: string) => void;
@@ -91,21 +92,22 @@ export const useFinanceStore = create<FinanceStore>()(
 
       addItem: (i) => set((s) => ({ items: [...s.items, { ...i, id: uid() }] })),
 
-      addInstallmentPlan: (base, description, firstDueDate, totalInstallments) => {
+      addInstallmentPlan: (base, description, firstDueDate, totalInstallments, startIndex = 1) => {
         const groupId = uid();
-        const newItems: PayableReceivable[] = Array.from(
-          { length: totalInstallments },
-          (_, idx) => ({
+        const count = totalInstallments - startIndex + 1;
+        const newItems: PayableReceivable[] = Array.from({ length: count }, (_, i) => {
+          const idx = startIndex + i;
+          return {
             ...base,
             id: uid(),
-            description: `${description} (${idx + 1}/${totalInstallments})`,
-            dueDate: addMonthsISO(firstDueDate, idx),
+            description: `${description} (${idx}/${totalInstallments})`,
+            dueDate: addMonthsISO(firstDueDate, i),
             paid: false,
             installmentGroupId: groupId,
-            installmentIndex: idx + 1,
+            installmentIndex: idx,
             installmentTotal: totalInstallments,
-          })
-        );
+          };
+        });
         set((s) => ({ items: [...s.items, ...newItems] }));
       },
 

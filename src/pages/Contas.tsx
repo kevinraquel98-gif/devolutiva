@@ -9,7 +9,7 @@ import {
 } from "../types";
 import { Badge, Button, Card, EmptyState, Input, Select, SectionTitle, StatTile } from "../components/ui";
 import { formatBRL } from "../lib/format";
-import { daysUntil, formatDateBR, resolveDueDateFromDay } from "../lib/date";
+import { daysUntil, formatDateBR, todayISO } from "../lib/date";
 import { getOverdue, getUpcoming } from "../lib/finance";
 
 type ViewFilter = "30dias" | "vencidas" | "todas";
@@ -78,7 +78,6 @@ export function Contas() {
           <NewAccountForm
             defaultType={type}
             onCreate={(form) => {
-              const firstDueDate = resolveDueDateFromDay(form.dueDay);
               if (form.installments > 1) {
                 addInstallmentPlan(
                   {
@@ -88,8 +87,9 @@ export function Contas() {
                     amount: form.amount,
                   },
                   form.description,
-                  firstDueDate,
-                  form.installments
+                  form.dueDate,
+                  form.installments,
+                  form.installmentsPaid + 1
                 );
               } else {
                 addItem({
@@ -98,7 +98,7 @@ export function Contas() {
                   type: form.type,
                   category: form.category,
                   amount: form.amount,
-                  dueDate: firstDueDate,
+                  dueDate: form.dueDate,
                   paid: false,
                 });
               }
@@ -193,8 +193,9 @@ interface NewAccountFormValue {
   type: PayableReceivableType;
   category: string;
   amount: number;
-  dueDay: number;
+  dueDate: string;
   installments: number;
+  installmentsPaid: number;
 }
 
 function NewAccountForm({
@@ -213,22 +214,25 @@ function NewAccountForm({
     defaultType === "pagar" ? DEFAULT_EXPENSE_CATEGORIES[0] : DEFAULT_INCOME_CATEGORIES[0]
   );
   const [amount, setAmount] = useState(0);
-  const [dueDay, setDueDay] = useState(new Date().getDate());
+  const [dueDate, setDueDate] = useState(todayISO());
   const [parcelado, setParcelado] = useState(false);
   const [installments, setInstallments] = useState(2);
+  const [installmentsPaid, setInstallmentsPaid] = useState(0);
 
   const categories = type === "pagar" ? DEFAULT_EXPENSE_CATEGORIES : DEFAULT_INCOME_CATEGORIES;
 
   function handleSubmit() {
     if (description.trim() === "" || amount <= 0) return;
+    const total = parcelado ? Math.max(1, Math.min(12, installments)) : 1;
     onCreate({
       description: description.trim(),
       counterparty: counterparty.trim(),
       type,
       category,
       amount,
-      dueDay,
-      installments: parcelado ? Math.max(2, Math.min(60, installments)) : 1,
+      dueDate,
+      installments: total,
+      installmentsPaid: parcelado ? Math.max(0, Math.min(total - 1, installmentsPaid)) : 0,
     });
   }
 
@@ -300,18 +304,18 @@ function NewAccountForm({
           />
         </div>
         <div>
-          <label className="text-xs text-text-muted block mb-1">Dia do vencimento (1-31)</label>
+          <label className="text-xs text-text-muted block mb-1">Data de vencimento</label>
           <Input
-            type="number"
-            min={1}
-            max={31}
-            value={dueDay}
-            onChange={(e) => setDueDay(Math.min(31, Math.max(1, Number(e.target.value) || 1)))}
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
             className="w-full"
           />
-          <p className="text-xs text-text-muted mt-1">
-            Vence dia {resolveDueDateFromDay(dueDay).split("-").reverse().join("/")}
-          </p>
+          {parcelado && (
+            <p className="text-xs text-text-muted mt-1">
+              Vencimento da parcela {Math.min(12, Math.max(1, installmentsPaid + 1))}
+            </p>
+          )}
         </div>
         <div className="flex items-end gap-3">
           <label className="flex items-center gap-2 text-sm text-text-muted">
@@ -323,25 +327,51 @@ function NewAccountForm({
             />
             Parcelado
           </label>
-          {parcelado && (
+        </div>
+        {parcelado && (
+          <>
             <div>
-              <label className="text-xs text-text-muted block mb-1">Nº de parcelas</label>
+              <label className="text-xs text-text-muted block mb-1">Nº de parcelas (1-12)</label>
               <Input
                 type="number"
-                min={2}
-                max={60}
+                min={1}
+                max={12}
                 value={installments}
-                onChange={(e) => setInstallments(Number(e.target.value) || 2)}
+                onChange={(e) => {
+                  const total = Math.max(1, Math.min(12, Number(e.target.value) || 1));
+                  setInstallments(total);
+                  setInstallmentsPaid((paid) => Math.min(paid, total - 1));
+                }}
                 className="w-24"
               />
             </div>
-          )}
-        </div>
+            <div>
+              <label className="text-xs text-text-muted block mb-1">Parcelas já pagas</label>
+              <Input
+                type="number"
+                min={0}
+                max={Math.max(0, installments - 1)}
+                value={installmentsPaid}
+                onChange={(e) =>
+                  setInstallmentsPaid(
+                    Math.max(0, Math.min(installments - 1, Number(e.target.value) || 0))
+                  )
+                }
+                className="w-24"
+              />
+              <p className="text-xs text-text-muted mt-1">
+                Faltam {installments - installmentsPaid} de {installments}
+              </p>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="flex gap-2">
         <Button onClick={handleSubmit} disabled={description.trim() === "" || amount <= 0}>
-          {parcelado ? `Criar ${installments} parcelas` : "Criar conta"}
+          {parcelado
+            ? `Criar ${installments - installmentsPaid} parcela(s) restante(s)`
+            : "Criar conta"}
         </Button>
         <Button variant="secondary" onClick={onCancel}>
           Cancelar
@@ -408,14 +438,71 @@ function ItemRow({
         />
       </td>
       <td className="px-2 py-2">
-        <div className="flex flex-wrap gap-1">
-          {sourceCostName && <Badge tone="orange">Custo: {sourceCostName}</Badge>}
-          {item.installmentTotal && (
-            <Badge tone="neutral">
-              Parcela {item.installmentIndex}/{item.installmentTotal}
-            </Badge>
-          )}
-        </div>
+        {sourceCostName ? (
+          <div className="flex flex-wrap gap-1">
+            <Badge tone="orange">Custo: {sourceCostName}</Badge>
+            {item.installmentTotal && (
+              <Badge tone="neutral">
+                Parcela {item.installmentIndex}/{item.installmentTotal}
+              </Badge>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <label className="flex items-center gap-1 text-xs text-text-muted whitespace-nowrap">
+              <input
+                type="checkbox"
+                checked={!!item.installmentTotal}
+                onChange={(e) =>
+                  onUpdate(
+                    e.target.checked
+                      ? { installmentIndex: 1, installmentTotal: 2 }
+                      : {
+                          installmentIndex: undefined,
+                          installmentTotal: undefined,
+                          installmentGroupId: undefined,
+                        }
+                  )
+                }
+                className="accent-orange"
+              />
+              Parcelado
+            </label>
+            {!!item.installmentTotal && (
+              <div className="flex items-center gap-1 text-xs text-text-muted whitespace-nowrap">
+                <Input
+                  type="number"
+                  min={1}
+                  max={item.installmentTotal}
+                  value={item.installmentIndex ?? 1}
+                  onChange={(e) => {
+                    const idx = Math.min(
+                      item.installmentTotal ?? 1,
+                      Math.max(1, Number(e.target.value) || 1)
+                    );
+                    onUpdate({ installmentIndex: idx });
+                  }}
+                  className="w-11 text-center py-1 px-1"
+                />
+                <span>de</span>
+                <Input
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={item.installmentTotal}
+                  onChange={(e) => {
+                    const total = Math.min(12, Math.max(1, Number(e.target.value) || 1));
+                    onUpdate({
+                      installmentTotal: total,
+                      installmentIndex: Math.min(item.installmentIndex ?? 1, total),
+                    });
+                  }}
+                  className="w-11 text-center py-1 px-1"
+                />
+              </div>
+            )}
+          </div>
+        )}
       </td>
       <td className="px-2 py-2">
         {item.paid ? (
