@@ -42,3 +42,37 @@ export function formatMonthBR(iso: string): string {
 export function monthKey(iso: string): string {
   return iso.slice(0, 7);
 }
+
+function lastDayOfMonth(year: number, monthIndex: number): number {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+function buildClampedDateISO(year: number, monthIndex: number, day: number): string {
+  const y = year + Math.floor(monthIndex / 12);
+  const m = ((monthIndex % 12) + 12) % 12;
+  const clampedDay = Math.min(Math.max(day, 1), lastDayOfMonth(y, m));
+  return format(new Date(y, m, clampedDay), "yyyy-MM-dd");
+}
+
+/** Data ISO para `day` (1-31) no mesmo mês de `referenceISO`, clampada ao último dia do mês. */
+export function dateForDayInMonth(day: number, referenceISO: string): string {
+  const ref = parseISO(referenceISO);
+  return buildClampedDateISO(ref.getFullYear(), ref.getMonth(), day);
+}
+
+/**
+ * Resolve `day` (1-31) para a próxima ocorrência a partir de hoje: mês atual se o dia
+ * ainda não passou, senão o mês seguinte.
+ */
+export function resolveDueDateFromDay(day: number, referenceISO: string = todayISO()): string {
+  const ref = parseISO(referenceISO);
+  const candidate = buildClampedDateISO(ref.getFullYear(), ref.getMonth(), day);
+  if (candidate >= referenceISO) return candidate;
+  return buildClampedDateISO(ref.getFullYear(), ref.getMonth() + 1, day);
+}
+
+/** Data ISO para `day` (1-31) `monthOffset` meses a partir de hoje (0 = mês atual). */
+export function dueDateForMonthOffset(day: number, monthOffset: number): string {
+  const ref = parseISO(todayISO());
+  return buildClampedDateISO(ref.getFullYear(), ref.getMonth() + monthOffset, day);
+}
