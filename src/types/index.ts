@@ -20,6 +20,7 @@ export interface MonthlyCost {
   category: string;
   amount: number;
   active: boolean;
+  dueDay: number; // dia do mês (1-31) em que o custo vence
 }
 
 export type PayableReceivableType = "pagar" | "receber";
@@ -29,9 +30,16 @@ export interface PayableReceivable {
   description: string;
   counterparty: string;
   type: PayableReceivableType;
+  category: string;
   amount: number;
   dueDate: string; // ISO yyyy-mm-dd
   paid: boolean;
+  paidDate?: string; // ISO yyyy-mm-dd, preenchido ao marcar como pago
+  transactionId?: string; // transação de fluxo de caixa gerada ao marcar como pago
+  installmentGroupId?: string; // agrupa parcelas da mesma compra/conta
+  installmentIndex?: number; // posição da parcela (1-based)
+  installmentTotal?: number; // total de parcelas do grupo
+  sourceCostId?: string; // id do MonthlyCost que gerou esta conta automaticamente
 }
 
 export interface AppState {

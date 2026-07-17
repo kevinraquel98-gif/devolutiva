@@ -32,49 +32,61 @@ export function buildSeedTransactions(): Transaction[] {
 }
 
 export function buildSeedMonthlyCosts(): MonthlyCost[] {
-  const mk = (name: string, type: MonthlyCost["type"], category: string, amount: number): MonthlyCost => ({
+  const mk = (
+    name: string,
+    type: MonthlyCost["type"],
+    category: string,
+    amount: number,
+    dueDay: number
+  ): MonthlyCost => ({
     id: uid(),
     name,
     type,
     category,
     amount,
     active: true,
+    dueDay,
   });
   return [
-    mk("Folha de Pagamento", "fixo", "Folha de Pagamento", 21000),
-    mk("Aluguel do escritório", "fixo", "Aluguel", 4200),
-    mk("Assinaturas de software", "fixo", "Software/Assinaturas", 980),
-    mk("Água, luz, internet", "fixo", "Utilidades", 620),
-    mk("Contador", "fixo", "Outros", 700),
-    mk("Fornecedores (matéria-prima)", "variavel", "Fornecedores", 9800),
-    mk("Comissões de vendas", "variavel", "Folha de Pagamento", 2600),
-    mk("Marketing / Ads", "variavel", "Marketing", 3200),
-    mk("Frete e logística", "variavel", "Outros", 1400),
-    mk("Impostos sobre vendas", "variavel", "Impostos", 5100),
+    mk("Folha de Pagamento", "fixo", "Folha de Pagamento", 21000, 5),
+    mk("Aluguel do escritório", "fixo", "Aluguel", 4200, 10),
+    mk("Assinaturas de software", "fixo", "Software/Assinaturas", 980, 15),
+    mk("Água, luz, internet", "fixo", "Utilidades", 620, 20),
+    mk("Contador", "fixo", "Outros", 700, 10),
+    mk("Fornecedores (matéria-prima)", "variavel", "Fornecedores", 9800, 12),
+    mk("Comissões de vendas", "variavel", "Folha de Pagamento", 2600, 5),
+    mk("Marketing / Ads", "variavel", "Marketing", 3200, 15),
+    mk("Frete e logística", "variavel", "Outros", 1400, 18),
+    mk("Impostos sobre vendas", "variavel", "Impostos", 5100, 20),
   ];
 }
 
 export function buildSeedItems(): PayableReceivable[] {
-  const mkR = (description: string, counterparty: string, type: PayableReceivable["type"], amount: number, days: number, paid = false): PayableReceivable => ({
+  const mkR = (
+    description: string,
+    counterparty: string,
+    type: PayableReceivable["type"],
+    category: string,
+    amount: number,
+    days: number,
+    paid = false
+  ): PayableReceivable => ({
     id: uid(),
     description,
     counterparty,
     type,
+    category,
     amount,
     dueDate: addDaysISO(todayISO(), days),
     paid,
   });
   return [
-    mkR("Fatura cliente #1042", "Cliente Alfa Ltda", "receber", 12500, 3),
-    mkR("Fatura cliente #1043", "Cliente Beta S.A.", "receber", 8700, 9),
-    mkR("Contrato mensal", "Cliente Gama ME", "receber", 6300, 16),
-    mkR("Fatura cliente #1044", "Cliente Delta EIRELI", "receber", 15400, 27),
-    mkR("Venda à vista pendente de compensação", "Cliente Épsilon", "receber", 3200, 40),
-    mkR("Fornecedor de insumos", "Fornecedor Central", "pagar", 9800, 5),
-    mkR("Aluguel do mês", "Imobiliária Bravo", "pagar", 4200, 2),
-    mkR("Folha de pagamento", "Colaboradores", "pagar", 21000, 12),
-    mkR("Imposto - DAS/Simples", "Receita Federal", "pagar", 5100, 20),
-    mkR("Assinatura anual de software", "SaaS Corp", "pagar", 2400, 35),
+    mkR("Fatura cliente #1042", "Cliente Alfa Ltda", "receber", "Vendas", 12500, 3),
+    mkR("Fatura cliente #1043", "Cliente Beta S.A.", "receber", "Serviços", 8700, 9),
+    mkR("Contrato mensal", "Cliente Gama ME", "receber", "Serviços", 6300, 16),
+    mkR("Fatura cliente #1044", "Cliente Delta EIRELI", "receber", "Vendas", 15400, 27),
+    mkR("Venda à vista pendente de compensação", "Cliente Épsilon", "receber", "Vendas", 3200, 40),
+    mkR("Fornecedor de insumos", "Fornecedor Central", "pagar", "Fornecedores", 9800, 5),
   ];
 }
 

@@ -21,6 +21,7 @@ export function Custos() {
       category: DEFAULT_EXPENSE_CATEGORIES[0],
       amount: 0,
       active: true,
+      dueDay: 5,
     });
   }
 
@@ -39,7 +40,7 @@ export function Custos() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <CostGroup
           title="Custos Fixos"
-          subtitle="Não variam com o volume de vendas (aluguel, folha, assinaturas...)"
+          subtitle="Não variam com o volume de vendas — cada custo ativo vira automaticamente uma conta a pagar prevista todo mês"
           items={fixed}
           maxAmount={fixed[0]?.amount ?? 0}
           onAdd={() => handleAdd("fixo")}
@@ -48,7 +49,7 @@ export function Custos() {
         />
         <CostGroup
           title="Custos Variáveis"
-          subtitle="Oscilam conforme o faturamento (fornecedores, comissões, impostos...)"
+          subtitle="Oscilam conforme o faturamento — cada custo ativo vira automaticamente uma conta a pagar prevista todo mês"
           items={variable}
           maxAmount={variable[0]?.amount ?? 0}
           onAdd={() => handleAdd("variavel")}
@@ -114,7 +115,7 @@ function CostGroup({
                       className="w-[110px] text-right tabular-nums"
                     />
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Select
                       value={DEFAULT_EXPENSE_CATEGORIES.includes(c.category) ? c.category : "Outros"}
                       onChange={(e) => onUpdate(c.id, { category: e.target.value })}
@@ -126,6 +127,21 @@ function CostGroup({
                         </option>
                       ))}
                     </Select>
+                    <label className="flex items-center gap-1.5 text-xs text-text-muted whitespace-nowrap">
+                      Dia venc.
+                      <Input
+                        type="number"
+                        min={1}
+                        max={31}
+                        value={c.dueDay}
+                        onChange={(e) =>
+                          onUpdate(c.id, {
+                            dueDay: Math.min(31, Math.max(1, Number(e.target.value) || 1)),
+                          })
+                        }
+                        className="w-14 text-center py-1"
+                      />
+                    </label>
                     <label className="flex items-center gap-1.5 text-xs text-text-muted">
                       <input
                         type="checkbox"
