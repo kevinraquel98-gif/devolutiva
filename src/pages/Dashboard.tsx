@@ -15,6 +15,8 @@ import {
   getCashPosition,
   getMonthlyTransactionSummary,
   getRunway,
+  getTotalFixedCosts,
+  getTotalVariableCosts,
   getUpcoming,
 } from "../lib/finance";
 import { formatBRL, formatBRLCompact, formatPercent } from "../lib/format";
@@ -37,6 +39,8 @@ export function Dashboard({ onNavigate }: { onNavigate: (t: TabKey) => void }) {
     Saídas: m.saidas,
     Saldo: m.saldoAcumulado,
   }));
+
+  const totalCustosMes = getTotalFixedCosts(state.monthlyCosts) + getTotalVariableCosts(state.monthlyCosts);
 
   return (
     <div className="space-y-6">
@@ -69,6 +73,29 @@ export function Dashboard({ onNavigate }: { onNavigate: (t: TabKey) => void }) {
               Próx. 30d: {formatBRLCompact(upcoming.totalReceivable - upcoming.totalPayable)}
             </Badge>
           </div>
+        </div>
+      </Card>
+
+      <Card>
+        <SectionTitle title="Resumo" subtitle={`Referente a ${formatMonthBR(currentMonth + "-01")}`} />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <StatTile
+            label="Saída"
+            value={formatBRL(dre.saidas)}
+            tone="negative"
+            hint="Total pago/saído no mês atual"
+          />
+          <StatTile
+            label="Caixa"
+            value={formatBRL(cash)}
+            tone={cash >= 0 ? "positive" : "negative"}
+            hint="Posição de caixa atual"
+          />
+          <StatTile
+            label="Total"
+            value={formatBRL(totalCustosMes)}
+            hint="Custos Fixos + Custos Variáveis do mês"
+          />
         </div>
       </Card>
 
