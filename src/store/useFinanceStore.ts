@@ -9,6 +9,7 @@ import type {
 import { uid } from "../lib/id";
 import { buildSeedState } from "./seed";
 import { addMonthsISO, dueDateForMonthOffset, monthKey, todayISO } from "../lib/date";
+import { costInstallmentIndexForMonth, isCostActiveInMonth } from "../lib/finance";
 
 interface FinanceStore extends AppState {
   addTransaction: (t: Omit<Transaction, "id">) => void;
@@ -31,6 +32,9 @@ interface FinanceStore extends AppState {
   removeItem: (id: string) => void;
   markItemPaid: (id: string, paidDate?: string) => void;
   markItemUnpaid: (id: string) => void;
+
+  markCostPaid: (costId: string) => void;
+  markCostUnpaid: (costId: string) => void;
 
   syncCostPayables: () => void;
 
@@ -182,18 +186,22 @@ export const useFinanceStore = create<FinanceStore>()(
         let nextItems = [...items];
 
         for (const cost of monthlyCosts) {
-          if (!cost.active) {
-            nextItems = nextItems.filter(
-              (i) => !(i.sourceCostId === cost.id && !i.paid && i.dueDate >= todayISO())
-            );
-            continue;
-          }
           for (let offset = 0; offset < COST_SYNC_MONTHS_AHEAD; offset++) {
             const dueDate = dueDateForMonthOffset(cost.dueDay, offset);
             const targetMonth = monthKey(dueDate);
+            const shouldExist = isCostActiveInMonth(cost, targetMonth);
             const existingIdx = nextItems.findIndex(
               (i) => i.sourceCostId === cost.id && monthKey(i.dueDate) === targetMonth
             );
+            const installmentIndex = costInstallmentIndexForMonth(cost, targetMonth);
+
+            if (!shouldExist) {
+              if (existingIdx !== -1 && !nextItems[existingIdx].paid) {
+                nextItems.splice(existingIdx, 1);
+              }
+              continue;
+            }
+
             if (existingIdx === -1) {
               nextItems.push({
                 id: uid(),
@@ -205,6 +213,8 @@ export const useFinanceStore = create<FinanceStore>()(
                 dueDate,
                 paid: false,
                 sourceCostId: cost.id,
+                installmentIndex: installmentIndex ?? undefined,
+                installmentTotal: cost.installments?.total,
               });
             } else if (!nextItems[existingIdx].paid) {
               nextItems[existingIdx] = {
@@ -212,6 +222,8 @@ export const useFinanceStore = create<FinanceStore>()(
                 description: cost.name,
                 category: cost.category,
                 amount: cost.amount,
+                installmentIndex: installmentIndex ?? undefined,
+                installmentTotal: cost.installments?.total,
               };
             }
           }
@@ -227,6 +239,41 @@ export const useFinanceStore = create<FinanceStore>()(
         );
 
         set({ items: nextItems });
+      },
+
+      markCostPaid: (costId) => {
+        const { monthlyCosts, items } = get();
+        const cost = monthlyCosts.find((c) => c.id === costId);
+        if (!cost) return;
+        const currentMonth = monthKey(todayISO());
+        let item = items.find(
+          (i) => i.sourceCostId === costId && monthKey(i.dueDate) === currentMonth
+        );
+        if (!item) {
+          item = {
+            id: uid(),
+            description: cost.name,
+            counterparty: "",
+            type: "pagar",
+            category: cost.category,
+            amount: cost.amount,
+            dueDate: dueDateForMonthOffset(cost.dueDay, 0),
+            paid: false,
+            sourceCostId: cost.id,
+            installmentIndex: costInstallmentIndexForMonth(cost, currentMonth) ?? undefined,
+            installmentTotal: cost.installments?.total,
+          };
+          set((s) => ({ items: [...s.items, item as PayableReceivable] }));
+        }
+        if (!item.paid) get().markItemPaid(item.id);
+      },
+
+      markCostUnpaid: (costId) => {
+        const currentMonth = monthKey(todayISO());
+        const item = get().items.find(
+          (i) => i.sourceCostId === costId && monthKey(i.dueDate) === currentMonth
+        );
+        if (item?.paid) get().markItemUnpaid(item.id);
       },
 
       setInitialBalance: (value, date) =>
