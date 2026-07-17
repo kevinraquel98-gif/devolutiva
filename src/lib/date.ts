@@ -76,3 +76,10 @@ export function dueDateForMonthOffset(day: number, monthOffset: number): string 
   const ref = parseISO(todayISO());
   return buildClampedDateISO(ref.getFullYear(), ref.getMonth() + monthOffset, day);
 }
+
+/** Diferença em meses entre duas chaves "yyyy-MM" (toMonth - fromMonth). */
+export function monthsBetween(fromMonthKey: string, toMonthKey: string): number {
+  const [fy, fm] = fromMonthKey.split("-").map(Number);
+  const [ty, tm] = toMonthKey.split("-").map(Number);
+  return (ty - fy) * 12 + (tm - fm);
+}

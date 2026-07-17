@@ -1,5 +1,5 @@
 import type { AppState, MonthlyCost, PayableReceivable, Transaction } from "../types";
-import { addMonthsISO, daysUntil, monthKey, todayISO } from "./date";
+import { addMonthsISO, daysUntil, monthKey, monthsBetween, todayISO } from "./date";
 
 export function getCashPosition(state: AppState): number {
   const today = todayISO();
@@ -79,23 +79,41 @@ export function getCashFlowSeries(state: AppState, months = 6) {
   });
 }
 
-export function getActiveCosts(monthlyCosts: MonthlyCost[], type: MonthlyCost["type"]) {
-  return monthlyCosts.filter((c) => c.active && c.type === type);
+/** Índice da parcela (1-based) que `cost` representa em `month`, ou null se não parcelado. */
+export function costInstallmentIndexForMonth(cost: MonthlyCost, month: string): number | null {
+  if (!cost.installments) return null;
+  return monthsBetween(cost.installments.startMonth, month) + 1;
 }
 
-export function getTotalFixedCosts(monthlyCosts: MonthlyCost[]): number {
-  return getActiveCosts(monthlyCosts, "fixo").reduce((s, c) => s + c.amount, 0);
+/** Se o custo está de fato em cobrança em `month` (ativo e, se parcelado, dentro da janela). */
+export function isCostActiveInMonth(cost: MonthlyCost, month: string = monthKey(todayISO())): boolean {
+  if (!cost.active) return false;
+  const idx = costInstallmentIndexForMonth(cost, month);
+  if (idx === null) return true;
+  return idx >= 1 && idx <= (cost.installments?.total ?? 0);
 }
 
-export function getTotalVariableCosts(monthlyCosts: MonthlyCost[]): number {
-  return getActiveCosts(monthlyCosts, "variavel").reduce((s, c) => s + c.amount, 0);
+export function getActiveCosts(
+  monthlyCosts: MonthlyCost[],
+  type: MonthlyCost["type"],
+  month: string = monthKey(todayISO())
+) {
+  return monthlyCosts.filter((c) => c.type === type && isCostActiveInMonth(c, month));
 }
 
-export function getRankedCosts(monthlyCosts: MonthlyCost[]) {
-  const fixed = [...getActiveCosts(monthlyCosts, "fixo")].sort(
+export function getTotalFixedCosts(monthlyCosts: MonthlyCost[], month?: string): number {
+  return getActiveCosts(monthlyCosts, "fixo", month).reduce((s, c) => s + c.amount, 0);
+}
+
+export function getTotalVariableCosts(monthlyCosts: MonthlyCost[], month?: string): number {
+  return getActiveCosts(monthlyCosts, "variavel", month).reduce((s, c) => s + c.amount, 0);
+}
+
+export function getRankedCosts(monthlyCosts: MonthlyCost[], month?: string) {
+  const fixed = [...getActiveCosts(monthlyCosts, "fixo", month)].sort(
     (a, b) => b.amount - a.amount
   );
-  const variable = [...getActiveCosts(monthlyCosts, "variavel")].sort(
+  const variable = [...getActiveCosts(monthlyCosts, "variavel", month)].sort(
     (a, b) => b.amount - a.amount
   );
   return { fixed, variable };

@@ -13,6 +13,11 @@ export interface Transaction {
 
 export type CostType = "fixo" | "variavel";
 
+export interface CostInstallments {
+  total: number; // total de parcelas
+  startMonth: string; // yyyy-MM da primeira parcela
+}
+
 export interface MonthlyCost {
   id: string;
   name: string;
@@ -21,6 +26,7 @@ export interface MonthlyCost {
   amount: number;
   active: boolean;
   dueDay: number; // dia do mês (1-31) em que o custo vence
+  installments?: CostInstallments; // se definido, o custo só é cobrado durante essa janela
 }
 
 export type PayableReceivableType = "pagar" | "receber";
